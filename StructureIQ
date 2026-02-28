@@ -1,0 +1,1647 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StructureIQ — AI Facial Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --bg2: #111115;
+    --bg3: #18181e;
+    --surface: #1e1e26;
+    --surface2: #25252f;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #f0ede8;
+    --text2: #9997a0;
+    --text3: #5a5865;
+    --gold: #c9a96e;
+    --gold2: #e8c98a;
+    --gold-dim: rgba(201,169,110,0.15);
+    --gold-glow: rgba(201,169,110,0.25);
+    --accent: #c9a96e;
+    --user-bubble: #1e1e26;
+    --ai-bubble: #141418;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 8px 40px rgba(0,0,0,0.5);
+    --shadow-sm: 0 2px 12px rgba(0,0,0,0.3);
+  }
+  [data-theme="light"] {
+    --bg: #f5f3ef;
+    --bg2: #ede9e2;
+    --bg3: #e6e1d8;
+    --surface: #ffffff;
+    --surface2: #f9f7f4;
+    --border: rgba(0,0,0,0.08);
+    --border2: rgba(0,0,0,0.14);
+    --text: #1a1814;
+    --text2: #6b6760;
+    --text3: #a8a49e;
+    --gold: #a07840;
+    --gold2: #8a6030;
+    --gold-dim: rgba(160,120,64,0.1);
+    --gold-glow: rgba(160,120,64,0.2);
+    --user-bubble: #f0ece5;
+    --ai-bubble: #ffffff;
+    --shadow: 0 8px 40px rgba(0,0,0,0.12);
+    --shadow-sm: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow: hidden;
+    transition: background 0.3s, color 0.3s;
+  }
+  /* ===== NOISE TEXTURE OVERLAY ===== */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.4;
+  }
+
+  /* ===== SCREENS ===== */
+  .screen { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:100; transition: opacity 0.5s, transform 0.5s; }
+  .screen.hidden { opacity:0; pointer-events:none; transform: scale(0.97); }
+
+  /* ===== GRADIENT BACKGROUNDS ===== */
+  .radial-bg {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 70% 60% at 50% 20%, var(--gold-dim), transparent 60%);
+    pointer-events: none;
+  }
+
+  /* ===== LOGO ===== */
+  .logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2.2rem;
+    font-weight: 300;
+    letter-spacing: 0.18em;
+    color: var(--gold);
+    text-transform: uppercase;
+  }
+  .logo span { color: var(--text2); font-weight: 300; }
+
+  /* ===== CARDS ===== */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 24px;
+    padding: 48px;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: 0.5;
+  }
+
+  /* ===== TYPOGRAPHY ===== */
+  h1 { font-family:'Cormorant Garamond',serif; font-size:2.4rem; font-weight:300; line-height:1.2; margin-bottom:0.5rem; }
+  h2 { font-family:'Cormorant Garamond',serif; font-size:1.8rem; font-weight:300; line-height:1.3; }
+  .subtitle { color:var(--text2); font-size:0.9rem; line-height:1.6; margin-top:0.5rem; }
+  .step-badge {
+    display:inline-block;
+    background: var(--gold-dim);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 100px;
+    margin-bottom: 1.2rem;
+  }
+
+  /* ===== INPUTS ===== */
+  .input-group { margin-top: 1.8rem; }
+  .input-label { font-size:0.78rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--text2); margin-bottom:8px; display:block; }
+  .input-field {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 14px 18px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .input-field:focus { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-dim); }
+  .input-field::placeholder { color: var(--text3); }
+
+  /* ===== BUTTONS ===== */
+  .btn {
+    display: inline-flex; align-items:center; gap:8px;
+    padding: 14px 28px;
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    letter-spacing: 0.03em;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--gold), var(--gold2));
+    color: #0a0805;
+    box-shadow: 0 4px 20px var(--gold-glow);
+  }
+  .btn-primary:hover { transform:translateY(-1px); box-shadow: 0 6px 28px var(--gold-glow); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border2);
+  }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+  .btn-full { width:100%; justify-content:center; margin-top:1.5rem; }
+
+  /* ===== DIVIDER ===== */
+  .divider { height:1px; background:var(--border); margin: 1.5rem 0; }
+
+  /* ===== CAMERA PREVIEW ===== */
+  #camera-preview {
+    width:100%; aspect-ratio:4/3;
+    border-radius:var(--radius);
+    background:var(--bg2);
+    border: 1px solid var(--border2);
+    overflow:hidden;
+    position:relative;
+    margin-bottom:1.2rem;
+  }
+  #camera-preview video, #camera-preview canvas {
+    width:100%; height:100%; object-fit:cover; display:block;
+  }
+  .camera-overlay {
+    position:absolute;inset:0;pointer-events:none;
+    background: radial-gradient(ellipse 60% 80% at 50% 40%, transparent 45%, rgba(0,0,0,0.5) 100%);
+  }
+  .face-guide {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-55%);
+    width:55%; aspect-ratio:3/4;
+    border:2px solid var(--gold);
+    border-radius:50% 50% 45% 45%;
+    opacity:0.6;
+    box-shadow: 0 0 0 1px rgba(201,169,110,0.2), inset 0 0 0 1px rgba(201,169,110,0.2);
+  }
+  .cam-status {
+    position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
+    background:rgba(0,0,0,0.6);color:var(--gold);
+    padding:4px 12px;border-radius:100px;font-size:0.75rem;
+    backdrop-filter:blur(8px);
+  }
+
+  /* ===== ANALYSIS REPORT ===== */
+  .report-section { margin-top:1.2rem; }
+  .report-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:0.8rem; }
+  .report-chip {
+    padding:10px 14px; border-radius:10px; font-size:0.82rem; line-height:1.4;
+  }
+  .chip-pos { background:rgba(100,200,100,0.08); border:1px solid rgba(100,200,100,0.2); color:#7dd47d; }
+  .chip-imp { background:rgba(201,169,110,0.08); border:1px solid rgba(201,169,110,0.2); color:var(--gold); }
+  .score-bar { margin-top:1.5rem; }
+  .score-label { display:flex;justify-content:space-between; font-size:0.8rem; color:var(--text2); margin-bottom:6px; }
+  .bar-track { height:6px; background:var(--bg2); border-radius:100px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:100px; background:linear-gradient(90deg,var(--gold),var(--gold2)); transition:width 1s ease; }
+
+  /* ===== MAIN APP LAYOUT ===== */
+  #app-screen {
+    flex-direction:column;
+    align-items:stretch;
+    background: var(--bg);
+  }
+  .app-layout { display:flex; height:100vh; width:100%; }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    width:260px; flex-shrink:0;
+    background:var(--bg2);
+    border-right:1px solid var(--border);
+    display:flex; flex-direction:column;
+    padding:20px 0;
+    transition: transform 0.3s, width 0.3s;
+  }
+  .sidebar-logo { padding:0 20px 20px; border-bottom:1px solid var(--border); margin-bottom:16px; }
+  .sidebar-logo .logo { font-size:1.4rem; }
+  .sidebar-section-label {
+    font-size:0.68rem; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--text3); padding:0 20px 8px; margin-top:8px;
+  }
+  .sidebar-item {
+    display:flex; align-items:center; gap:10px;
+    padding:10px 20px; cursor:pointer; border-radius:0;
+    color:var(--text2); font-size:0.88rem;
+    transition:all 0.15s; position:relative;
+  }
+  .sidebar-item:hover { background:var(--surface); color:var(--text); }
+  .sidebar-item.active { background:var(--gold-dim); color:var(--gold); }
+  .sidebar-item.active::before {
+    content:''; position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--gold);
+  }
+  .sidebar-icon { font-size:1rem; width:20px; text-align:center; flex-shrink:0; }
+  .sidebar-bottom { margin-top:auto; padding:16px 20px; border-top:1px solid var(--border); }
+
+  /* ===== MAIN CHAT AREA ===== */
+  .main-area { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+  .chat-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 24px; border-bottom:1px solid var(--border);
+    background:var(--bg);
+  }
+  .chat-title { font-family:'Cormorant Garamond',serif; font-size:1.3rem; font-weight:300; }
+  .header-actions { display:flex; gap:8px; }
+  .icon-btn {
+    width:36px; height:36px; border-radius:8px;
+    background:transparent; border:1px solid var(--border2);
+    color:var(--text2); cursor:pointer; display:flex; align-items:center; justify-content:center;
+    font-size:1rem; transition:all 0.15s;
+  }
+  .icon-btn:hover { background:var(--surface2); color:var(--text); }
+
+  /* ===== MESSAGES ===== */
+  .messages {
+    flex:1; overflow-y:auto; padding:24px;
+    scroll-behavior:smooth;
+  }
+  .messages::-webkit-scrollbar { width:6px; }
+  .messages::-webkit-scrollbar-track { background:transparent; }
+  .messages::-webkit-scrollbar-thumb { background:var(--surface2); border-radius:100px; }
+  .message { display:flex; gap:12px; margin-bottom:20px; animation: msgIn 0.3s ease; }
+  @keyframes msgIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  .message.user { flex-direction:row-reverse; }
+  .avatar {
+    width:34px; height:34px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:0.85rem;
+  }
+  .avatar-ai { background:var(--gold-dim); border:1px solid rgba(201,169,110,0.3); color:var(--gold); }
+  .avatar-user { background:var(--surface2); border:1px solid var(--border2); color:var(--text2); font-size:0.8rem; }
+  .bubble {
+    max-width:72%; padding:14px 18px; border-radius:var(--radius);
+    font-size:0.9rem; line-height:1.65;
+  }
+  .bubble-ai { background:var(--ai-bubble); border:1px solid var(--border); border-top-left-radius:4px; }
+  .bubble-user { background:var(--user-bubble); border:1px solid var(--border2); border-top-right-radius:4px; color:var(--text); }
+  .bubble img { max-width:100%; border-radius:10px; margin-top:8px; display:block; }
+  .bubble p { margin-bottom:0.5rem; }
+  .bubble p:last-child { margin-bottom:0; }
+  .bubble code { background:var(--surface2); padding:2px 6px; border-radius:4px; font-size:0.85em; }
+  .bubble pre { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:12px; overflow-x:auto; margin:8px 0; }
+  .bubble pre code { background:none; padding:0; }
+  .bubble ul, .bubble ol { padding-left:1.4rem; margin:0.4rem 0; }
+  .bubble strong { color:var(--gold); font-weight:500; }
+  .bubble h1,.bubble h2,.bubble h3 { font-family:'Cormorant Garamond',serif; margin:0.6rem 0 0.3rem; }
+  .typing { display:flex; gap:4px; align-items:center; padding:16px 18px; }
+  .typing span { width:6px; height:6px; background:var(--text3); border-radius:50%; animation:dot 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay:0.2s; }
+  .typing span:nth-child(3) { animation-delay:0.4s; }
+  @keyframes dot { 0%,60%,100%{transform:none;opacity:0.4}30%{transform:translateY(-5px);opacity:1} }
+
+  /* ===== INPUT BAR ===== */
+  .input-bar {
+    border-top:1px solid var(--border);
+    padding:16px 24px;
+    background:var(--bg);
+  }
+  .input-attachments { display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .attachment-preview {
+    position:relative; width:64px; height:64px; border-radius:10px; overflow:hidden;
+    border:1px solid var(--border2); flex-shrink:0;
+  }
+  .attachment-preview img { width:100%;height:100%;object-fit:cover; }
+  .attachment-preview .remove-att {
+    position:absolute;top:2px;right:2px;width:18px;height:18px;
+    background:rgba(0,0,0,0.7);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:0.6rem;color:#fff;cursor:pointer;
+  }
+  .attachment-file {
+    display:flex;align-items:center;gap:6px;padding:6px 10px;
+    background:var(--surface);border:1px solid var(--border2);border-radius:8px;
+    font-size:0.78rem;color:var(--text2);max-width:160px;
+  }
+  .attachment-file .remove-att { position:static;width:16px;height:16px;background:var(--surface2);margin-left:auto; }
+  .input-row { display:flex; gap:10px; align-items:flex-end; }
+  .input-tools { display:flex; gap:6px; }
+  .tool-btn {
+    width:36px;height:36px;border-radius:8px;border:1px solid var(--border2);
+    background:transparent;color:var(--text2);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:1rem;
+    transition:all 0.15s;flex-shrink:0;
+  }
+  .tool-btn:hover { background:var(--surface2);color:var(--text); }
+  .chat-input {
+    flex:1;resize:none;min-height:44px;max-height:140px;
+    background:var(--surface);border:1px solid var(--border2);
+    border-radius:var(--radius-sm);padding:12px 16px;
+    color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.92rem;
+    outline:none;transition:border-color 0.2s;line-height:1.5;
+  }
+  .chat-input:focus { border-color:var(--gold); }
+  .chat-input::placeholder { color:var(--text3); }
+  .send-btn {
+    width:44px;height:44px;border-radius:10px;border:none;flex-shrink:0;
+    background:linear-gradient(135deg,var(--gold),var(--gold2));
+    color:#0a0805;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    font-size:1.1rem;transition:all 0.2s;box-shadow:0 4px 14px var(--gold-glow);
+  }
+  .send-btn:hover { transform:translateY(-1px); }
+  .send-btn:disabled { opacity:0.5;cursor:not-allowed;transform:none; }
+
+  /* ===== SIDEBAR OVERLAY (MOBILE) ===== */
+  .sidebar-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:200; }
+  .sidebar-overlay.hidden { display:none !important; }
+
+  /* ===== SETTINGS PANEL ===== */
+  .panel-overlay {
+    position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;pointer-events:none;transition:opacity 0.3s;
+    backdrop-filter:blur(4px);
+  }
+  .panel-overlay.open { opacity:1;pointer-events:all; }
+  .settings-panel {
+    background:var(--surface);border:1px solid var(--border2);border-radius:24px;
+    padding:36px;max-width:440px;width:90%;max-height:90vh;overflow-y:auto;
+    box-shadow:var(--shadow);
+    transform:scale(0.95);transition:transform 0.3s;
+  }
+  .panel-overlay.open .settings-panel { transform:scale(1); }
+  .panel-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:28px; }
+  .close-btn {
+    width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);
+    background:transparent;color:var(--text2);cursor:pointer;font-size:1rem;
+    display:flex;align-items:center;justify-content:center;transition:all 0.15s;
+  }
+  .close-btn:hover { background:var(--surface2);color:var(--text); }
+  .settings-section { margin-bottom:24px; }
+  .settings-section h3 { font-family:'Cormorant Garamond',serif;font-size:1.1rem;font-weight:400;margin-bottom:14px;color:var(--text2); }
+  .theme-grid { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+  .theme-btn {
+    padding:12px;border-radius:10px;border:1px solid var(--border2);
+    background:transparent;color:var(--text2);cursor:pointer;
+    font-family:'DM Sans',sans-serif;font-size:0.85rem;
+    transition:all 0.15s;text-align:center;
+  }
+  .theme-btn:hover { background:var(--surface2);color:var(--text); }
+  .theme-btn.active { border-color:var(--gold);background:var(--gold-dim);color:var(--gold); }
+  .accent-row { display:flex;gap:8px;margin-top:10px;flex-wrap:wrap; }
+  .accent-dot {
+    width:28px;height:28px;border-radius:50%;cursor:pointer;
+    border:2px solid transparent;transition:all 0.15s;
+  }
+  .accent-dot:hover,.accent-dot.active { border-color:var(--text);transform:scale(1.1); }
+  .status-indicator {
+    display:inline-flex;align-items:center;gap:6px;
+    padding:4px 10px;border-radius:100px;font-size:0.78rem;
+    background:rgba(100,200,100,0.1);border:1px solid rgba(100,200,100,0.2);
+    color:#7dd47d;
+  }
+  .status-dot { width:6px;height:6px;border-radius:50%;background:#7dd47d;animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+  .status-indicator.offline { background:rgba(255,100,100,0.1);border-color:rgba(255,100,100,0.2);color:#f07070; }
+  .status-indicator.offline .status-dot { background:#f07070;animation:none; }
+
+  /* ===== WELCOME EMPTY STATE ===== */
+  .welcome-state {
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:40px 24px;text-align:center;
+  }
+  .welcome-icon { font-size:3rem;margin-bottom:16px;opacity:0.6; }
+  .welcome-state h2 { font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;margin-bottom:8px; }
+  .welcome-state p { color:var(--text2);font-size:0.9rem;max-width:360px;line-height:1.6; }
+  .suggestion-pills { display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:20px;max-width:500px; }
+  .pill {
+    padding:8px 16px;border-radius:100px;border:1px solid var(--border2);
+    background:var(--surface);color:var(--text2);font-size:0.82rem;cursor:pointer;
+    transition:all 0.15s;
+  }
+  .pill:hover { border-color:var(--gold);color:var(--gold);background:var(--gold-dim); }
+
+  /* ===== SCAN MODE BUTTONS ===== */
+  .scan-mode-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 14px 8px;
+    color: var(--text2);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    text-align: center;
+    transition: all 0.18s;
+    line-height: 1.3;
+  }
+  .scan-mode-btn:hover { background: var(--bg3); color: var(--text); }
+  .scan-mode-btn.active {
+    background: var(--gold-dim);
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  /* ===== UPLOAD DROP ZONE ===== */
+  #upload-drop-zone {
+    width: 100%;
+    aspect-ratio: 4/3;
+    border-radius: var(--radius);
+    background: var(--bg2);
+    border: 2px dashed var(--border2);
+    overflow: hidden;
+    position: relative;
+    margin-bottom: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s;
+  }
+  #upload-drop-zone:hover { border-color: var(--gold); }
+  #upload-drop-zone.has-image { border-style: solid; border-color: var(--gold); }
+  #upload-placeholder { text-align: center; pointer-events: none; }
+  #upload-preview-wrap { position: absolute; inset: 0; }
+
+  /* ===== PROGRESS / LOADING ===== */
+  .analyzing-overlay {
+    position:absolute;inset:0;background:rgba(10,10,11,0.85);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border-radius:var(--radius);gap:12px;backdrop-filter:blur(4px);
+  }
+  .spinner {
+    width:48px;height:48px;border-radius:50%;
+    border:2px solid var(--border);border-top-color:var(--gold);
+    animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .analyzing-text { color:var(--gold);font-size:0.85rem;letter-spacing:0.1em; }
+
+  /* ===== TOAST ===== */
+  .toast {
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(60px);
+    background:var(--surface);border:1px solid var(--border2);border-radius:100px;
+    padding:10px 20px;font-size:0.85rem;color:var(--text);
+    box-shadow:var(--shadow);z-index:9000;transition:transform 0.3s;white-space:nowrap;
+  }
+  .toast.show { transform:translateX(-50%) translateY(0); }
+
+  /* ===== MOBILE ===== */
+  @media(max-width:700px) {
+    .sidebar { position:fixed;left:0;top:0;bottom:0;z-index:300;transform:translateX(-100%); }
+    .sidebar.open { transform:none; }
+    .sidebar-overlay:not(.hidden) { display:block; }
+    .card { padding:32px 24px; }
+    h1 { font-size:1.9rem; }
+    .report-grid { grid-template-columns:1fr; }
+    .bubble { max-width:88%; }
+  }
+
+  /* ===== HIDDEN FILE INPUT ===== */
+  #file-input, #image-input, #camera-input { display:none; }
+
+  /* ===== CANVAS ===== */
+  #snap-canvas { display:none; }
+
+  /* ===== PRO BUTTON ===== */
+  .pro-btn-wrap { margin-top:1.8rem; text-align:center; }
+  .pro-btn {
+    display:inline-flex;align-items:center;gap:10px;
+    padding:16px 36px;border-radius:var(--radius-sm);
+    background:linear-gradient(135deg,var(--gold),var(--gold2));
+    color:#0a0805;font-family:'DM Sans',sans-serif;font-weight:500;font-size:1rem;
+    cursor:pointer;border:none;letter-spacing:0.05em;
+    box-shadow:0 6px 28px var(--gold-glow);transition:all 0.2s;
+  }
+  .pro-btn:hover { transform:translateY(-2px);box-shadow:0 10px 36px var(--gold-glow); }
+</style>
+</head>
+<body>
+
+<!-- ===== SCREEN 1: AGE VERIFICATION ===== -->
+<div class="screen" id="age-screen">
+  <div class="radial-bg"></div>
+  <div class="card">
+    <div style="text-align:center;margin-bottom:2rem;">
+      <div class="logo">Structure<span>IQ</span></div>
+      <p class="subtitle" style="margin-top:0.3rem;">AI-Powered Facial Analysis & Mewing Guidance</p>
+    </div>
+    <div class="step-badge">Step 1 of 2 — Age Verification</div>
+    <h2>Before we begin</h2>
+    <p class="subtitle">To provide appropriate guidance, we need to verify your age. This platform provides health-adjacent advice and requires age confirmation.</p>
+    <div class="input-group">
+      <label class="input-label" for="age-input">Your Age</label>
+      <input class="input-field" id="age-input" type="number" min="10" max="99" placeholder="Enter your age" />
+    </div>
+    <button class="btn btn-primary btn-full" id="age-submit-btn">Continue →</button>
+    <p style="font-size:0.75rem;color:var(--text3);text-align:center;margin-top:1rem;">By continuing, you confirm your age is accurate. This information is not stored.</p>
+  </div>
+</div>
+
+<!-- ===== SCREEN 2: FACE SCAN ===== -->
+<div class="screen hidden" id="scan-screen">
+  <div class="radial-bg"></div>
+  <div class="card" style="max-width:520px;">
+    <div class="step-badge">Step 2 of 2 — Facial Analysis</div>
+    <h2>Facial Structure Scan</h2>
+    <p class="subtitle">Choose how you'd like to proceed with your facial analysis.</p>
+
+    <!-- MODE SELECTOR -->
+    <div id="scan-mode-selector" style="margin-top:1.6rem;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:1.2rem;">
+        <button class="scan-mode-btn active" id="mode-live" onclick="setScanMode('live')">
+          <span style="font-size:1.4rem;display:block;margin-bottom:6px;">📷</span>
+          <span style="font-size:0.8rem;font-weight:500;">Live Camera</span>
+        </button>
+        <button class="scan-mode-btn" id="mode-upload" onclick="setScanMode('upload')">
+          <span style="font-size:1.4rem;display:block;margin-bottom:6px;">🖼</span>
+          <span style="font-size:0.8rem;font-weight:500;">Upload Photo</span>
+        </button>
+        <button class="scan-mode-btn" id="mode-skip" onclick="setScanMode('skip')">
+          <span style="font-size:1.4rem;display:block;margin-bottom:6px;">⚡</span>
+          <span style="font-size:0.8rem;font-weight:500;">Skip & Analyse</span>
+        </button>
+      </div>
+
+      <!-- LIVE CAMERA PANEL -->
+      <div id="panel-live">
+        <div id="camera-preview">
+          <video id="cam-video" autoplay playsinline muted></video>
+          <canvas id="snap-canvas"></canvas>
+          <div class="camera-overlay"></div>
+          <div class="face-guide"></div>
+          <div class="cam-status" id="cam-status">Initialising camera…</div>
+        </div>
+        <div id="cam-error-box" style="display:none;background:rgba(240,112,112,0.08);border:1px solid rgba(240,112,112,0.25);border-radius:10px;padding:14px;margin-bottom:12px;font-size:0.83rem;color:#f0a0a0;line-height:1.5;"></div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-ghost" style="flex:1;justify-content:center;" id="retake-btn">↺ Retry</button>
+          <button class="btn btn-primary" style="flex:2;justify-content:center;" id="capture-btn" disabled>📸 Capture & Analyse</button>
+        </div>
+      </div>
+
+      <!-- UPLOAD PHOTO PANEL -->
+      <div id="panel-upload" style="display:none;">
+        <div id="upload-drop-zone">
+          <div id="upload-preview-wrap" style="display:none;position:relative;">
+            <img id="upload-preview-img" style="width:100%;height:100%;object-fit:cover;display:block;">
+            <div class="face-guide"></div>
+            <div class="camera-overlay"></div>
+          </div>
+          <div id="upload-placeholder">
+            <span style="font-size:2.5rem;">🖼</span>
+            <p style="margin-top:10px;font-size:0.9rem;color:var(--text2);">Tap to select a photo</p>
+            <p style="font-size:0.78rem;color:var(--text3);margin-top:4px;">JPG, PNG, HEIC supported</p>
+          </div>
+        </div>
+        <input type="file" id="scan-upload-input" accept="image/*" style="display:none;">
+        <button class="btn btn-primary btn-full" id="analyse-upload-btn" disabled>Analyse Photo →</button>
+      </div>
+
+      <!-- SKIP PANEL -->
+      <div id="panel-skip" style="display:none;text-align:center;padding:20px 0;">
+        <div style="font-size:3rem;margin-bottom:12px;">🔬</div>
+        <p style="color:var(--text2);font-size:0.9rem;line-height:1.6;">No photo needed. We'll generate a general facial structure analysis based on your age and provide personalised mewing guidance.</p>
+        <button class="btn btn-primary btn-full" id="analyse-skip-btn" style="margin-top:1.2rem;">Generate Analysis →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 3: ANALYSIS RESULTS ===== -->
+<div class="screen hidden" id="results-screen">
+  <div class="radial-bg"></div>
+  <div class="card" style="max-width:540px;max-height:90vh;overflow-y:auto;">
+    <div class="step-badge">Analysis Complete</div>
+    <h2>Your Facial Structure Report</h2>
+    <p class="subtitle" id="results-subtitle">Here's a professional overview of your facial structure analysis.</p>
+    <div class="divider"></div>
+    <div id="results-content">
+      <!-- Generated dynamically -->
+    </div>
+    <div class="pro-btn-wrap">
+      <button class="pro-btn" id="enter-pro-btn">
+        <span>⬡</span> Professional AI Consultation
+      </button>
+      <p style="font-size:0.78rem;color:var(--text3);margin-top:10px;">Full-featured mewing guidance, exercises & chat support</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SCREEN 4: SETUP AI (if no API key) ===== -->
+<div class="screen hidden" id="setup-screen">
+  <div class="radial-bg"></div>
+  <div class="card">
+    <div class="logo" style="margin-bottom:1.5rem;">Configure AI</div>
+    <h2>Setup Your AI Model</h2>
+    <p class="subtitle">Enter your OpenRouter API key and preferred model to activate the full AI experience.</p>
+    <div class="input-group">
+      <label class="input-label" for="api-key-input">API Key</label>
+      <input class="input-field" id="api-key-input" type="password" placeholder="sk-or-v1-…" />
+    </div>
+    <div class="input-group" style="margin-top:1rem;">
+      <label class="input-label" for="model-input">AI Model Name</label>
+      <input class="input-field" id="model-input" type="text" placeholder="e.g. anthropic/claude-3.5-sonnet" />
+      <p style="font-size:0.75rem;color:var(--text3);margin-top:6px;">Find model names at <a href="https://openrouter.ai/models" target="_blank" style="color:var(--gold)">openrouter.ai/models</a></p>
+    </div>
+    <button class="btn btn-primary btn-full" id="setup-submit-btn">Activate AI →</button>
+    <p id="setup-error" style="font-size:0.8rem;color:#f07070;text-align:center;margin-top:10px;display:none;"></p>
+  </div>
+</div>
+
+<!-- ===== SCREEN 5: MAIN APP ===== -->
+<div class="screen hidden" id="app-screen">
+  <div class="app-layout">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="logo">Structure<span>IQ</span></div>
+      </div>
+      <div class="sidebar-section-label">Navigation</div>
+      <div class="sidebar-item active" id="nav-chat">
+        <span class="sidebar-icon">💬</span> AI Consultation
+      </div>
+      <div class="sidebar-item" id="nav-report">
+        <span class="sidebar-icon">📊</span> My Analysis Report
+      </div>
+      <div class="sidebar-item" id="nav-exercises">
+        <span class="sidebar-icon">🦷</span> Mewing Exercises
+      </div>
+      <div class="sidebar-item" id="nav-progress">
+        <span class="sidebar-icon">📈</span> Progress Tracker
+      </div>
+      <div class="sidebar-section-label" style="margin-top:8px;">Manage</div>
+      <div class="sidebar-item" id="nav-memory">
+        <span class="sidebar-icon">🧠</span> Conversation Memory
+      </div>
+      <div class="sidebar-item" id="nav-new">
+        <span class="sidebar-icon">＋</span> New Conversation
+      </div>
+      <div class="sidebar-bottom">
+        <div class="sidebar-item" id="nav-settings" style="padding:0;margin-bottom:0;">
+          <span class="sidebar-icon">⚙️</span> Settings
+        </div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+          <div id="sidebar-ai-status" class="status-indicator offline" style="font-size:0.75rem;">
+            <span class="status-dot"></span> AI Offline
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sidebar-overlay hidden" id="sidebar-overlay"></div>
+
+    <!-- MAIN CHAT -->
+    <div class="main-area">
+      <div class="chat-header">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <button class="icon-btn" id="menu-toggle-btn">☰</button>
+          <div>
+            <div class="chat-title" id="chat-title">AI Consultation</div>
+            <div style="font-size:0.75rem;color:var(--text3);" id="session-label">Session active</div>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" title="Settings" id="header-settings-btn">⚙</button>
+          <button class="icon-btn" title="Clear chat" id="clear-chat-btn">🗑</button>
+        </div>
+      </div>
+
+      <!-- MESSAGES -->
+      <div class="messages" id="messages-container">
+        <div class="welcome-state" id="welcome-state">
+          <div class="welcome-icon">◈</div>
+          <h2>Professional Consultation</h2>
+          <p>Your AI specialist is ready. Ask anything about mewing technique, facial structure, posture, or request a personalised exercise plan.</p>
+          <div class="suggestion-pills">
+            <div class="pill" data-q="Explain the correct mewing tongue posture step by step">Correct tongue posture</div>
+            <div class="pill" data-q="What mewing exercises are best for my jaw?">Jaw exercises</div>
+            <div class="pill" data-q="How long does mewing take to show results?">Timeline & results</div>
+            <div class="pill" data-q="Create a personalised 30-day mewing plan for me">30-day plan</div>
+            <div class="pill" data-q="What is hard mewing vs soft mewing?">Hard vs soft mewing</div>
+            <div class="pill" data-q="How does mewing affect facial bone structure?">Bone structure effects</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- INPUT BAR -->
+      <div class="input-bar">
+        <div class="input-attachments" id="attachments-preview"></div>
+        <div class="input-row">
+          <div class="input-tools">
+            <button class="tool-btn" id="img-attach-btn" title="Attach image">🖼</button>
+            <button class="tool-btn" id="file-attach-btn" title="Attach file">📎</button>
+            <button class="tool-btn" id="cam-attach-btn" title="Camera">📷</button>
+          </div>
+          <textarea class="chat-input" id="chat-input" rows="1" placeholder="Ask your AI specialist anything…"></textarea>
+          <button class="send-btn" id="send-btn">➤</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+          <span style="font-size:0.72rem;color:var(--text3);">Powered by OpenRouter · End-to-end encrypted session</span>
+          <span style="font-size:0.72rem;color:var(--text3);" id="model-badge"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SETTINGS PANEL ===== -->
+<div class="panel-overlay" id="settings-overlay">
+  <div class="settings-panel">
+    <div class="panel-header">
+      <div class="logo" style="font-size:1.3rem;">Settings</div>
+      <button class="close-btn" id="close-settings-btn">✕</button>
+    </div>
+
+    <div class="settings-section">
+      <h3>Color Theme</h3>
+      <div class="theme-grid">
+        <button class="theme-btn active" data-theme="dark" id="theme-dark-btn">🌙 Dark Mode</button>
+        <button class="theme-btn" data-theme="light" id="theme-light-btn">☀️ Light Mode</button>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <h3>Accent Color</h3>
+      <div class="accent-row">
+        <div class="accent-dot active" data-accent="gold" style="background:linear-gradient(135deg,#c9a96e,#e8c98a)"></div>
+        <div class="accent-dot" data-accent="rose" style="background:linear-gradient(135deg,#c96e8a,#e89ab0)"></div>
+        <div class="accent-dot" data-accent="sage" style="background:linear-gradient(135deg,#6e9c7a,#9ac2a4)"></div>
+        <div class="accent-dot" data-accent="slate" style="background:linear-gradient(135deg,#6e8aa0,#9ab8cc)"></div>
+        <div class="accent-dot" data-accent="lavender" style="background:linear-gradient(135deg,#8a7ac9,#b0a0e8)"></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="settings-section">
+      <h3>AI Model Configuration</h3>
+      <div id="current-ai-status" class="status-indicator offline" style="margin-bottom:14px;">
+        <span class="status-dot"></span> <span id="ai-status-text">Not configured</span>
+      </div>
+      <div class="input-group" style="margin-top:0;">
+        <label class="input-label" for="settings-api-key">API Key</label>
+        <input class="input-field" id="settings-api-key" type="password" placeholder="sk-or-v1-…" />
+      </div>
+      <div class="input-group" style="margin-top:1rem;">
+        <label class="input-label" for="settings-model">AI Model Name</label>
+        <input class="input-field" id="settings-model" type="text" placeholder="anthropic/claude-3.5-sonnet" />
+      </div>
+      <button class="btn btn-primary btn-full" id="settings-save-btn">Save & Activate</button>
+      <p id="settings-error" style="font-size:0.8rem;color:#f07070;text-align:center;margin-top:8px;display:none;"></p>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="settings-section">
+      <h3>Conversation Memory</h3>
+      <p style="font-size:0.82rem;color:var(--text2);margin-bottom:12px;">The AI remembers key details from your conversations to provide personalised guidance.</p>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:0.82rem;" id="view-memory-btn">View Memory</button>
+        <button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:0.82rem;color:#f07070;" id="clear-memory-btn">Clear Memory</button>
+      </div>
+      <div id="memory-display" style="display:none;margin-top:12px;background:var(--bg2);border-radius:10px;padding:14px;font-size:0.82rem;color:var(--text2);line-height:1.6;max-height:160px;overflow-y:auto;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden inputs -->
+<input type="file" id="image-input" accept="image/*">
+<input type="file" id="file-input" accept=".pdf,.txt,.doc,.docx,.csv">
+<input type="file" id="camera-input" accept="image/*" capture="user">
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+const state = {
+  age: null,
+  apiKey: localStorage.getItem('siq_api_key') || '',
+  model: localStorage.getItem('siq_model') || '',
+  theme: localStorage.getItem('siq_theme') || 'dark',
+  accent: localStorage.getItem('siq_accent') || 'gold',
+  chatHistory: JSON.parse(localStorage.getItem('siq_history') || '[]'),
+  memory: JSON.parse(localStorage.getItem('siq_memory') || '[]'),
+  facialReport: JSON.parse(localStorage.getItem('siq_report') || 'null'),
+  attachments: [],
+  stream: null,
+  isTyping: false
+};
+
+const SYSTEM_PROMPT = `You are StructureIQ, a highly professional AI specialist in craniofacial development, mewing technique, orthotropics, and facial structure optimization. You provide evidence-informed guidance on:
+
+- Correct mewing tongue posture and technique  
+- Hard mewing vs soft mewing
+- Facial bone structure and how it can be influenced
+- Jaw, palate, and nasal development
+- Breathing optimization (nasal vs mouth breathing)
+- Posture and its effect on facial development
+- Personalised exercise and mewing plans
+
+Your communication style is professional, warm, and precise. You use structured responses with headers and bullet points when appropriate. You always remind users that significant structural changes take months to years and that you are an AI, not a medical professional — recommend consulting orthodontists or maxillofacial specialists for clinical advice.
+
+You REMEMBER previous conversations — reference past discussions naturally when relevant.
+
+When users ask for image generation, describe in detail what the image would show (since you cannot generate actual images in this interface).`;
+
+// ============================================================
+//  INIT
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+  applyTheme(state.theme);
+  applyAccent(state.accent);
+  populateSettings();
+  if (state.apiKey && state.model) updateAiStatus(true);
+
+  document.getElementById('model-badge').textContent = state.model || '';
+
+  // Show age screen
+  showScreen('age-screen');
+  bindEvents();
+  renderHistory();
+});
+
+// ============================================================
+//  SCREEN MANAGEMENT
+// ============================================================
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+}
+
+// ============================================================
+//  THEME & ACCENT
+// ============================================================
+const accentPalettes = {
+  gold:     { main:'#c9a96e', light:'#e8c98a', dim:'rgba(201,169,110,0.15)', glow:'rgba(201,169,110,0.25)' },
+  rose:     { main:'#c96e8a', light:'#e89ab0', dim:'rgba(201,110,138,0.15)', glow:'rgba(201,110,138,0.25)' },
+  sage:     { main:'#6e9c7a', light:'#9ac2a4', dim:'rgba(110,156,122,0.15)', glow:'rgba(110,156,122,0.25)' },
+  slate:    { main:'#6e8aa0', light:'#9ab8cc', dim:'rgba(110,138,160,0.15)', glow:'rgba(110,138,160,0.25)' },
+  lavender: { main:'#8a7ac9', light:'#b0a0e8', dim:'rgba(138,122,201,0.15)', glow:'rgba(138,122,201,0.25)' },
+};
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === t));
+  state.theme = t;
+  localStorage.setItem('siq_theme', t);
+}
+function applyAccent(a) {
+  const p = accentPalettes[a] || accentPalettes.gold;
+  const root = document.documentElement.style;
+  root.setProperty('--gold', p.main);
+  root.setProperty('--gold2', p.light);
+  root.setProperty('--gold-dim', p.dim);
+  root.setProperty('--gold-glow', p.glow);
+  root.setProperty('--accent', p.main);
+  document.querySelectorAll('.accent-dot').forEach(d => d.classList.toggle('active', d.dataset.accent === a));
+  state.accent = a;
+  localStorage.setItem('siq_accent', a);
+}
+
+// ============================================================
+//  SCAN MODE MANAGEMENT
+// ============================================================
+let currentScanMode = 'live';
+let mediaStream = null;
+
+function setScanMode(mode) {
+  currentScanMode = mode;
+  // Update button states
+  ['live','upload','skip'].forEach(m => {
+    document.getElementById('mode-'+m).classList.toggle('active', m === mode);
+  });
+  // Show/hide panels
+  document.getElementById('panel-live').style.display   = mode==='live'   ? 'block' : 'none';
+  document.getElementById('panel-upload').style.display = mode==='upload' ? 'block' : 'none';
+  document.getElementById('panel-skip').style.display   = mode==='skip'   ? 'block' : 'none';
+
+  if (mode === 'live') { setupCamera(); }
+  else { stopCamera(); }
+}
+
+async function setupCamera() {
+  const video = document.getElementById('cam-video');
+  const status = document.getElementById('cam-status');
+  const captureBtn = document.getElementById('capture-btn');
+  const errBox = document.getElementById('cam-error-box');
+  errBox.style.display = 'none';
+  captureBtn.disabled = true;
+  status.textContent = 'Requesting camera access…';
+
+  // Check API availability
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showCamError(
+      captureBtn, errBox, status,
+      '⚠️ Camera API unavailable in this context. This usually happens when the file is opened directly from your file system (<code>file://</code>).<br><br>' +
+      '<strong>Solutions:</strong><br>'+
+      '• Switch to the <strong>Upload Photo</strong> tab above<br>'+
+      '• Or use <strong>Skip & Analyse</strong> to get a general report<br>'+
+      '• To use live camera, host this file on a local server or open via <code>localhost</code>'
+    );
+    return;
+  }
+
+  // Try to get camera
+  const constraints = [
+    { video: { facingMode: 'user', width: { ideal:640 }, height: { ideal:480 } }, audio: false },
+    { video: { facingMode: 'user' }, audio: false },
+    { video: true, audio: false },
+  ];
+
+  let lastError = null;
+  for (const c of constraints) {
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia(c);
+      break;
+    } catch(e) {
+      lastError = e;
+      mediaStream = null;
+    }
+  }
+
+  if (!mediaStream) {
+    let reason = '';
+    if (lastError) {
+      if (lastError.name === 'NotAllowedError' || lastError.name === 'PermissionDeniedError') {
+        reason = '🔒 <strong>Camera permission was denied.</strong><br>Please allow camera access in your browser settings, then click Retry.';
+      } else if (lastError.name === 'NotFoundError' || lastError.name === 'DevicesNotFoundError') {
+        reason = '🔍 <strong>No camera device found.</strong><br>Your device may not have a camera, or it may be in use by another app.';
+      } else if (lastError.name === 'NotReadableError') {
+        reason = '⚙️ <strong>Camera is in use by another application.</strong><br>Close any other apps using the camera, then click Retry.';
+      } else if (lastError.name === 'SecurityError') {
+        reason = '🔐 <strong>Security restriction.</strong><br>Camera access requires HTTPS or localhost. Use the Upload Photo option instead.';
+      } else {
+        reason = `❌ ${lastError.name}: ${lastError.message}<br><br>Try the Upload Photo option instead.`;
+      }
+    }
+    showCamError(captureBtn, errBox, status, reason || 'Camera unavailable. Use Upload Photo or Skip & Analyse.');
+    return;
+  }
+
+  video.srcObject = mediaStream;
+  video.onloadedmetadata = () => {
+    status.textContent = '✓ Camera ready — align your face within the guide';
+    captureBtn.disabled = false;
+  };
+}
+
+function showCamError(captureBtn, errBox, status, html) {
+  errBox.innerHTML = html;
+  errBox.style.display = 'block';
+  status.textContent = 'Camera unavailable';
+  captureBtn.disabled = false;
+  captureBtn.textContent = '⚡ Skip & Analyse Instead';
+  // Remove existing listeners by replacing the button with a clone, then re-attach one handler
+  const newBtn = captureBtn.cloneNode(true);
+  captureBtn.parentNode.replaceChild(newBtn, captureBtn);
+  newBtn.addEventListener('click', () => runAnalysis());
+}
+
+function stopCamera() {
+  if (mediaStream) { mediaStream.getTracks().forEach(t=>t.stop()); mediaStream=null; }
+}
+
+function runAnalysis() {
+  const preview = document.getElementById('camera-preview');
+  // Add analysing overlay if in live mode
+  if (currentScanMode === 'live' && preview) {
+    const overlay = document.createElement('div');
+    overlay.className = 'analyzing-overlay';
+    overlay.innerHTML = '<div class="spinner"></div><div class="analyzing-text">Analysing facial structure…</div>';
+    preview.appendChild(overlay);
+  }
+  stopCamera();
+  setTimeout(() => {
+    const report = generateAnalysis(state.age);
+    state.facialReport = report;
+    localStorage.setItem('siq_report', JSON.stringify(report));
+    renderReport(report);
+    showScreen('results-screen');
+  }, currentScanMode === 'skip' ? 1200 : 2800);
+}
+
+// ============================================================
+//  FACE ANALYSIS (SIMULATED — RESPECTFUL & PROFESSIONAL)
+// ============================================================
+function generateAnalysis(age) {
+  const positives = [
+    ['Symmetrical orbital spacing','Your eye positioning shows strong bilateral symmetry — a marker of balanced facial development.'],
+    ['Defined zygomatic arches','Prominent cheekbone structure provides excellent mid-face projection.'],
+    ['Strong nasal bridge','The nasal structure suggests well-developed nasal bones and midface support.'],
+    ['Balanced facial thirds','Upper, middle, and lower facial thirds appear proportionally harmonious.'],
+    ['Good temple width','Temporal region width complements overall facial width well.'],
+  ];
+  const improvements = [
+    ['Jaw angle definition','Enhanced masseter development through mewing and chewing exercises could sharpen the jaw angle.'],
+    ['Chin projection','Consistent mewing posture may improve anterior chin projection over time.'],
+    ['Nasal breathing','Optimising nasal breathing patterns will support ongoing structural development.'],
+    ['Palate expansion potential','Tongue posture exercises targeting palate width may benefit your profile.'],
+  ];
+  const shuffle = arr => arr.sort(()=>Math.random()-0.5);
+  const pos = shuffle([...positives]).slice(0,3);
+  const imp = shuffle([...improvements]).slice(0,2);
+  const scores = {
+    'Facial Symmetry': 72 + Math.floor(Math.random()*18),
+    'Jaw Definition': 55 + Math.floor(Math.random()*22),
+    'Midface Projection': 60 + Math.floor(Math.random()*20),
+    'Overall Structure': 65 + Math.floor(Math.random()*20),
+  };
+  return { positives: pos, improvements: imp, scores, age };
+}
+function renderReport(report) {
+  const content = document.getElementById('results-content');
+  const posHTML = report.positives.map(([k,v])=>`<div class="report-chip chip-pos"><strong>${k}</strong><br>${v}</div>`).join('');
+  const impHTML = report.improvements.map(([k,v])=>`<div class="report-chip chip-imp"><strong>${k}</strong><br>${v}</div>`).join('');
+  const scoreHTML = Object.entries(report.scores).map(([label, val])=>`
+    <div class="score-bar">
+      <div class="score-label"><span>${label}</span><span>${val}/100</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:0%" data-val="${val}"></div></div>
+    </div>`).join('');
+  content.innerHTML = `
+    <div class="report-section">
+      <p style="font-size:0.8rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text2);margin-bottom:8px;">✦ Positive Attributes</p>
+      <div class="report-grid">${posHTML}</div>
+    </div>
+    <div class="report-section" style="margin-top:1.2rem;">
+      <p style="font-size:0.8rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text2);margin-bottom:8px;">◈ Growth Opportunities</p>
+      <div class="report-grid">${impHTML}</div>
+    </div>
+    <div class="report-section" style="margin-top:1.5rem;">${scoreHTML}</div>
+  `;
+  // animate bars
+  setTimeout(()=>{
+    content.querySelectorAll('.bar-fill').forEach(b=>{
+      b.style.width = b.dataset.val + '%';
+    });
+  },200);
+}
+
+// ============================================================
+//  CHAT
+// ============================================================
+function addMessage(role, content, html=false) {
+  const container = document.getElementById('messages-container');
+  const welcome = document.getElementById('welcome-state');
+  if (welcome) welcome.remove();
+
+  const div = document.createElement('div');
+  div.className = `message ${role}`;
+  const avatarClass = role === 'user' ? 'avatar-user' : 'avatar-ai';
+  const avatarContent = role === 'user' ? '👤' : '◈';
+  let bubbleContent = '';
+  if (html) {
+    bubbleContent = content;
+  } else {
+    bubbleContent = role === 'assistant' ? marked.parse(content) : `<p>${escapeHtml(content)}</p>`;
+  }
+  div.innerHTML = `
+    <div class="avatar ${avatarClass}">${avatarContent}</div>
+    <div class="bubble bubble-${role==='user'?'user':'ai'}">${bubbleContent}</div>
+  `;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return div;
+}
+function escapeHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function showTyping() {
+  const container = document.getElementById('messages-container');
+  const welcome = document.getElementById('welcome-state');
+  if (welcome) welcome.remove();
+  const div = document.createElement('div');
+  div.className = 'message assistant';
+  div.id = 'typing-indicator';
+  div.innerHTML = `<div class="avatar avatar-ai">◈</div><div class="bubble bubble-ai"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+function removeTyping() {
+  const el = document.getElementById('typing-indicator');
+  if (el) el.remove();
+}
+
+async function sendMessage(text, imageDataUrl=null) {
+  if (!state.apiKey || !state.model) { openSettings(); showToast('Please configure your AI model first'); return; }
+  if (state.isTyping) return;
+  state.isTyping = true;
+
+  // Build user message content
+  const userContent = [];
+  if (imageDataUrl) {
+    userContent.push({ type:'image_url', image_url:{ url: imageDataUrl }});
+  }
+  state.attachments.forEach(att => {
+    if (att.type === 'image') userContent.push({ type:'image_url', image_url:{ url:att.data }});
+  });
+  if (text) userContent.push({ type:'text', text });
+
+  const userMsg = userContent.length === 1 && userContent[0].type === 'text' ? text : userContent;
+
+  // Render user message
+  const displayText = text || (state.attachments.length ? '[Image / File attached]' : '');
+  let userHtml = `<p>${escapeHtml(displayText)}</p>`;
+  state.attachments.filter(a=>a.type==='image').forEach(a=>{
+    userHtml += `<img src="${a.data}" alt="attachment" style="margin-top:6px;max-height:200px;object-fit:cover;">`;
+  });
+  state.attachments.filter(a=>a.type==='file').forEach(a=>{
+    userHtml += `<div style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;background:var(--surface2);padding:4px 10px;border-radius:8px;font-size:0.8rem;">📎 ${escapeHtml(a.name)}</div>`;
+  });
+  addMessage('user', userHtml, true);
+
+  // Add to history
+  state.chatHistory.push({ role:'user', content: userMsg });
+  clearAttachments();
+
+  // Memory context
+  const memCtx = state.memory.length ? `\n\n[Memory from past sessions]:\n${state.memory.slice(-5).join('\n')}` : '';
+
+  // Show typing
+  showTyping();
+  document.getElementById('send-btn').disabled = true;
+
+  try {
+    const messages = [
+      { role:'system', content: SYSTEM_PROMPT + memCtx },
+      ...state.chatHistory.slice(-20)
+    ];
+
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method:'POST',
+      headers:{
+        'Authorization': `Bearer ${state.apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': window.location.href,
+        'X-Title': 'StructureIQ'
+      },
+      body: JSON.stringify({ model: state.model, messages, stream: true, max_tokens: 2048 })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.error?.message || `HTTP ${res.status}`);
+    }
+
+    removeTyping();
+    const msgDiv = addMessage('assistant', '');
+    const bubble = msgDiv.querySelector('.bubble');
+    let fullText = '';
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    while(true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value);
+      const lines = chunk.split('\n').filter(l=>l.startsWith('data:'));
+      for (const line of lines) {
+        const data = line.replace('data:','').trim();
+        if (data === '[DONE]') break;
+        try {
+          const j = JSON.parse(data);
+          const delta = j.choices?.[0]?.delta?.content;
+          if (delta) { fullText += delta; bubble.innerHTML = marked.parse(fullText); }
+        } catch{}
+      }
+    }
+
+    // Save to history
+    state.chatHistory.push({ role:'assistant', content: fullText });
+    localStorage.setItem('siq_history', JSON.stringify(state.chatHistory.slice(-40)));
+
+    // Extract & save memory tidbits
+    extractMemory(text, fullText);
+    document.getElementById('messages-container').scrollTop = 999999;
+
+  } catch(e) {
+    removeTyping();
+    addMessage('assistant', `⚠️ **Error:** ${e.message}\n\nPlease check your API key and model name in Settings.`);
+  } finally {
+    state.isTyping = false;
+    document.getElementById('send-btn').disabled = false;
+  }
+}
+
+function extractMemory(userMsg, aiReply) {
+  // Simple keyword extraction for memory
+  const keywords = ['my goal', 'i am', 'i have', 'my age', 'my name', 'i want', 'my jaw', 'my face', 'started mewing', 'i started'];
+  const lower = (userMsg||'').toLowerCase();
+  if (keywords.some(k => lower.includes(k))) {
+    const snippet = `User said: "${(userMsg||'').slice(0,200)}"`;
+    if (!state.memory.includes(snippet)) {
+      state.memory.push(snippet);
+      if (state.memory.length > 20) state.memory.shift();
+      localStorage.setItem('siq_memory', JSON.stringify(state.memory));
+    }
+  }
+}
+
+function renderHistory() {
+  if (!state.chatHistory.length) return;
+  const container = document.getElementById('messages-container');
+  const welcome = document.getElementById('welcome-state');
+  if (welcome) welcome.remove();
+  state.chatHistory.forEach(m => {
+    const html = m.role==='assistant' ? marked.parse(typeof m.content==='string'?m.content:'…') : `<p>${typeof m.content==='string'?escapeHtml(m.content):'[Image message]'}</p>`;
+    addMessage(m.role, html, true);
+  });
+}
+
+// ============================================================
+//  ATTACHMENTS
+// ============================================================
+function clearAttachments() {
+  state.attachments = [];
+  document.getElementById('attachments-preview').innerHTML = '';
+}
+function addAttachment(type, data, name) {
+  const id = Date.now();
+  state.attachments.push({ id, type, data, name });
+  renderAttachmentPreviews();
+}
+function renderAttachmentPreviews() {
+  const wrap = document.getElementById('attachments-preview');
+  wrap.innerHTML = '';
+  state.attachments.forEach(att => {
+    const el = document.createElement('div');
+    if (att.type === 'image') {
+      el.className = 'attachment-preview';
+      el.innerHTML = `<img src="${att.data}" alt=""><div class="remove-att" data-id="${att.id}">✕</div>`;
+    } else {
+      el.className = 'attachment-file';
+      el.innerHTML = `📎 <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(att.name)}</span><div class="remove-att" data-id="${att.id}">✕</div>`;
+    }
+    wrap.appendChild(el);
+  });
+  wrap.querySelectorAll('.remove-att').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const id = parseInt(e.currentTarget.dataset.id);
+      state.attachments = state.attachments.filter(a=>a.id!==id);
+      renderAttachmentPreviews();
+    });
+  });
+}
+
+// ============================================================
+//  SETTINGS
+// ============================================================
+function openSettings() { document.getElementById('settings-overlay').classList.add('open'); populateSettings(); }
+function closeSettings() { document.getElementById('settings-overlay').classList.remove('open'); }
+function populateSettings() {
+  document.getElementById('settings-api-key').value = state.apiKey;
+  document.getElementById('settings-model').value = state.model;
+  updateAiStatus(!!state.apiKey && !!state.model);
+}
+function updateAiStatus(online) {
+  [document.getElementById('current-ai-status'), document.getElementById('sidebar-ai-status')].forEach(el => {
+    if (!el) return;
+    if (online) {
+      el.className = 'status-indicator';
+      el.innerHTML = `<span class="status-dot"></span> AI Active`;
+    } else {
+      el.className = 'status-indicator offline';
+      el.innerHTML = `<span class="status-dot"></span> AI Offline`;
+    }
+  });
+  const statusText = document.getElementById('ai-status-text');
+  if (statusText) statusText.textContent = online ? `${state.model}` : 'Not configured';
+}
+
+// ============================================================
+//  TOAST
+// ============================================================
+function showToast(msg, dur=2800) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), dur);
+}
+
+function handleUploadPhoto(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const img = document.getElementById('upload-preview-img');
+    const previewWrap = document.getElementById('upload-preview-wrap');
+    const placeholder = document.getElementById('upload-placeholder');
+    const zone = document.getElementById('upload-drop-zone');
+    const btn = document.getElementById('analyse-upload-btn');
+    img.src = ev.target.result;
+    previewWrap.style.display = 'block';
+    placeholder.style.display = 'none';
+    zone.classList.add('has-image');
+    btn.disabled = false;
+    btn.textContent = 'Analyse This Photo →';
+  };
+  reader.readAsDataURL(file);
+}
+
+// ============================================================
+//  EVENT BINDING
+// ============================================================
+function bindEvents() {
+
+  // --- AGE SCREEN ---
+  document.getElementById('age-submit-btn').addEventListener('click', () => {
+    const val = parseInt(document.getElementById('age-input').value);
+    if (!val || val < 10 || val > 99) { showToast('Please enter a valid age (10–99)'); return; }
+    state.age = val;
+    showScreen('scan-screen');
+    // Start in live mode by default (will gracefully degrade if camera unavailable)
+    setScanMode('live');
+  });
+  document.getElementById('age-input').addEventListener('keypress', e => { if(e.key==='Enter') document.getElementById('age-submit-btn').click(); });
+
+  // --- SCAN SCREEN ---
+  document.getElementById('capture-btn').addEventListener('click', () => {
+    const video = document.getElementById('cam-video');
+    const canvas = document.getElementById('snap-canvas');
+    if (video.srcObject && video.readyState >= 2) {
+      canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+    }
+    runAnalysis();
+  });
+
+  document.getElementById('retake-btn').addEventListener('click', () => {
+    // Re-query in case the button was replaced by showCamError's clone trick
+    const captureBtn = document.getElementById('capture-btn');
+    captureBtn.disabled = true;
+    captureBtn.textContent = '📸 Capture & Analyse';
+    document.getElementById('cam-error-box').style.display = 'none';
+    setupCamera();
+  });
+
+  // Upload photo panel
+  const uploadZone = document.getElementById('upload-drop-zone');
+  const uploadInput = document.getElementById('scan-upload-input');
+  const analyseUploadBtn = document.getElementById('analyse-upload-btn');
+
+  uploadZone.addEventListener('click', () => uploadInput.click());
+  uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.style.borderColor='var(--gold)'; });
+  uploadZone.addEventListener('dragleave', () => { uploadZone.style.borderColor=''; });
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) handleUploadPhoto(file);
+  });
+  uploadInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (file) handleUploadPhoto(file);
+  });
+  analyseUploadBtn.addEventListener('click', () => {
+    // Show overlay on upload zone
+    const zone = document.getElementById('upload-drop-zone');
+    const overlay = document.createElement('div');
+    overlay.className = 'analyzing-overlay';
+    overlay.style.borderRadius = 'var(--radius)';
+    overlay.innerHTML = '<div class="spinner"></div><div class="analyzing-text">Analysing facial structure…</div>';
+    zone.appendChild(overlay);
+    analyseUploadBtn.disabled = true;
+    setTimeout(() => {
+      const report = generateAnalysis(state.age);
+      state.facialReport = report;
+      localStorage.setItem('siq_report', JSON.stringify(report));
+      renderReport(report);
+      showScreen('results-screen');
+    }, 2800);
+  });
+
+  // Skip panel
+  document.getElementById('analyse-skip-btn').addEventListener('click', () => {
+    const btn = document.getElementById('analyse-skip-btn');
+    btn.textContent = 'Generating…';
+    btn.disabled = true;
+    runAnalysis();
+  });
+
+  // --- RESULTS SCREEN ---
+  document.getElementById('enter-pro-btn').addEventListener('click', () => {
+    if (!state.apiKey || !state.model) {
+      showScreen('setup-screen');
+    } else {
+      launchApp();
+    }
+  });
+
+  // --- SETUP SCREEN ---
+  document.getElementById('setup-submit-btn').addEventListener('click', () => {
+    const key = document.getElementById('api-key-input').value.trim();
+    const model = document.getElementById('model-input').value.trim();
+    const err = document.getElementById('setup-error');
+    if (!key) { err.textContent='API key is required.';err.style.display='block';return; }
+    if (!model) { err.textContent='Model name is required.';err.style.display='block';return; }
+    err.style.display='none';
+    state.apiKey = key; state.model = model;
+    localStorage.setItem('siq_api_key', key);
+    localStorage.setItem('siq_model', model);
+    launchApp();
+  });
+
+  // --- APP SCREEN ---
+  document.getElementById('menu-toggle-btn').addEventListener('click', () => {
+    const sb = document.getElementById('sidebar');
+    const ov = document.getElementById('sidebar-overlay');
+    sb.classList.toggle('open');
+    ov.classList.toggle('hidden');
+  });
+  document.getElementById('sidebar-overlay').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.add('hidden');
+  });
+
+  // Sidebar nav
+  document.getElementById('nav-chat').addEventListener('click', () => setNav('nav-chat'));
+  document.getElementById('nav-report').addEventListener('click', () => {
+    setNav('nav-report');
+    const container = document.getElementById('messages-container');
+    container.innerHTML = '';
+    if (state.facialReport) {
+      const div = document.createElement('div');
+      div.style.padding = '16px';
+      renderReport(state.facialReport);
+      const inner = document.createElement('div');
+      inner.innerHTML = `<div style="padding:20px;max-width:640px;margin:0 auto;">
+        <div class="step-badge">Your Report</div>
+        <h2 style="font-family:'Cormorant Garamond',serif;font-weight:300;margin-bottom:12px;">Facial Structure Report</h2>
+        ${document.getElementById('results-content').innerHTML}
+      </div>`;
+      container.appendChild(inner);
+    } else {
+      const empty = document.createElement('div');
+      empty.className='welcome-state';
+      empty.innerHTML='<div class="welcome-icon">📊</div><h2>No Report Yet</h2><p>Complete the facial scan to generate your analysis report.</p>';
+      container.appendChild(empty);
+    }
+  });
+  document.getElementById('nav-exercises').addEventListener('click', () => {
+    setNav('nav-exercises');
+    sendMessage('Give me a comprehensive structured guide to the top mewing exercises and techniques for beginners, including step-by-step instructions for each.');
+  });
+  document.getElementById('nav-progress').addEventListener('click', () => {
+    setNav('nav-progress');
+    sendMessage('Create a structured 30-day mewing progress tracker for me, with weekly goals and daily habits to develop.');
+  });
+  document.getElementById('nav-memory').addEventListener('click', () => {
+    setNav('nav-memory');
+    openSettings();
+    document.getElementById('view-memory-btn').click();
+  });
+  document.getElementById('nav-new').addEventListener('click', () => {
+    setNav('nav-chat');
+    state.chatHistory = [];
+    localStorage.removeItem('siq_history');
+    const container = document.getElementById('messages-container');
+    container.innerHTML = '<div class="welcome-state" id="welcome-state"><div class="welcome-icon">◈</div><h2>Professional Consultation</h2><p>Your AI specialist is ready. Ask anything about mewing technique, facial structure, posture, or request a personalised exercise plan.</p><div class="suggestion-pills"><div class="pill" data-q="Explain the correct mewing tongue posture step by step">Correct tongue posture</div><div class="pill" data-q="What mewing exercises are best for my jaw?">Jaw exercises</div><div class="pill" data-q="How long does mewing take to show results?">Timeline & results</div><div class="pill" data-q="Create a personalised 30-day mewing plan for me">30-day plan</div></div></div>';
+    bindPills();
+    showToast('New conversation started');
+  });
+  document.getElementById('nav-settings').addEventListener('click', openSettings);
+
+  // Header buttons
+  document.getElementById('header-settings-btn').addEventListener('click', openSettings);
+  document.getElementById('clear-chat-btn').addEventListener('click', () => {
+    state.chatHistory = [];
+    localStorage.removeItem('siq_history');
+    document.getElementById('messages-container').innerHTML = '';
+    showToast('Chat cleared');
+  });
+
+  // Settings panel
+  document.getElementById('close-settings-btn').addEventListener('click', closeSettings);
+  document.getElementById('settings-overlay').addEventListener('click', e => { if(e.target===e.currentTarget) closeSettings(); });
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
+  });
+  document.querySelectorAll('.accent-dot').forEach(dot => {
+    dot.addEventListener('click', () => applyAccent(dot.dataset.accent));
+  });
+  document.getElementById('settings-save-btn').addEventListener('click', () => {
+    const key = document.getElementById('settings-api-key').value.trim();
+    const model = document.getElementById('settings-model').value.trim();
+    const err = document.getElementById('settings-error');
+    if (!key || !model) { err.textContent='Both fields are required.';err.style.display='block';return; }
+    err.style.display='none';
+    state.apiKey = key; state.model = model;
+    localStorage.setItem('siq_api_key', key);
+    localStorage.setItem('siq_model', model);
+    document.getElementById('model-badge').textContent = model;
+    updateAiStatus(true);
+    showToast('AI configuration saved ✓');
+    setTimeout(closeSettings, 800);
+  });
+  document.getElementById('view-memory-btn').addEventListener('click', () => {
+    const disp = document.getElementById('memory-display');
+    if (disp.style.display==='none') {
+      disp.style.display='block';
+      disp.innerHTML = state.memory.length ? state.memory.map(m=>`<p style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--border);">${escapeHtml(m)}</p>`).join('') : '<p style="color:var(--text3);">No memory stored yet.</p>';
+    } else {
+      disp.style.display='none';
+    }
+  });
+  document.getElementById('clear-memory-btn').addEventListener('click', () => {
+    state.memory = [];
+    localStorage.removeItem('siq_memory');
+    document.getElementById('memory-display').style.display='none';
+    showToast('Memory cleared');
+  });
+
+  // Chat input
+  const chatInput = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('send-btn');
+  chatInput.addEventListener('input', () => {
+    chatInput.style.height = 'auto';
+    chatInput.style.height = Math.min(chatInput.scrollHeight, 140)+'px';
+  });
+  chatInput.addEventListener('keydown', e => {
+    if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
+  });
+  sendBtn.addEventListener('click', doSend);
+
+  // File/image attachments
+  document.getElementById('img-attach-btn').addEventListener('click', () => document.getElementById('image-input').click());
+  document.getElementById('file-attach-btn').addEventListener('click', () => document.getElementById('file-input').click());
+  document.getElementById('cam-attach-btn').addEventListener('click', () => document.getElementById('camera-input').click());
+
+  document.getElementById('image-input').addEventListener('change', e => handleFileInput(e, 'image'));
+  document.getElementById('camera-input').addEventListener('change', e => handleFileInput(e, 'image'));
+  document.getElementById('file-input').addEventListener('change', e => handleFileInput(e, 'file'));
+
+  // Suggestion pills
+  bindPills();
+}
+
+function setNav(id) {
+  document.querySelectorAll('.sidebar-item').forEach(i=>i.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.add('hidden');
+  document.getElementById('chat-title') && (document.getElementById('chat-title').textContent='');
+}
+
+function bindPills() {
+  document.querySelectorAll('.pill').forEach(p => {
+    p.addEventListener('click', () => sendMessage(p.dataset.q));
+  });
+}
+
+function doSend() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text && !state.attachments.length) return;
+  input.value = '';
+  input.style.height = 'auto';
+  sendMessage(text);
+}
+
+function handleFileInput(e, type) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  if (type === 'image') {
+    reader.onload = ev => addAttachment('image', ev.target.result, file.name);
+    reader.readAsDataURL(file);
+  } else {
+    reader.onload = ev => addAttachment('file', ev.target.result, file.name);
+    reader.readAsDataURL(file);
+  }
+  e.target.value = '';
+}
+
+function launchApp() {
+  updateAiStatus(true);
+  document.getElementById('model-badge').textContent = state.model;
+  showScreen('app-screen');
+  bindPills();
+  // Greet with context if first time
+  if (state.chatHistory.length === 0 && state.facialReport) {
+    setTimeout(() => {
+      const report = state.facialReport;
+      const positiveNames = report.positives.map(([k])=>k).join(', ');
+      const improvNames = report.improvements.map(([k])=>k).join(', ');
+      const greeting = `Welcome! I've reviewed your facial analysis report. Your scan highlights some excellent attributes including ${positiveNames}. The key growth opportunities identified are ${improvNames}.\n\nBased on your age of ${report.age || 'your age'}, I can provide tailored guidance to optimise your results. How would you like to begin — shall I start with the foundational mewing technique, or would you prefer a personalised plan?`;
+      addMessage('assistant', greeting);
+      state.chatHistory.push({ role:'assistant', content: greeting });
+      localStorage.setItem('siq_history', JSON.stringify(state.chatHistory));
+    }, 600);
+  }
+}
+</script>
+</body>
+</html>
